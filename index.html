@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menú Dinámico con Persistencia y Edición</title>
+  <style>
+    nav {
+      background-color: #333;
+      overflow: hidden;
+    }
+    nav ul {
+      list-style-type: none;
+      margin: 0;
+      padding: 0;
+    }
+    nav ul li {
+      float: left;
+      padding: 14px 16px;
+      position: relative;
+      transition: background-color 0.3s ease;
+    }
+    nav ul li a {
+      color: white;
+      text-decoration: none;
+      display: block;
+      z-index: 1; /* Se asegura de que el enlace esté por encima del botón eliminar */
+    }
+    nav ul li a:hover {
+      background-color: #111;
+    }
+    nav ul li ul {
+      display: none;
+      position: absolute;
+      background-color: #333;
+    }
+    nav ul li:hover ul {
+      display: block;
+    }
+    nav ul li ul li {
+      float: none;
+    }
+
+    .delete-btn, .edit-btn {
+      display: none;
+      position: absolute;
+      right: 10px;
+      top: 12px;
+      background-color: red;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      z-index: 2; 
+      border-radius: 5px; 
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+      transition: background-color 0.3s ease; 
+    }
+    
+    .edit-btn {
+      background-color: orange;
+    }
+
+    .delete-btn:hover {
+      background-color: darkred;
+    }
+
+    .edit-btn:hover {
+      background-color: darkorange;
+    }
+
+    @media screen and (max-width: 600px) {
+      nav ul li {
+        float: none;
+      }
+    }
+
+    #menu-form, #edit-menu-form {
+      margin-top: 20px;
+      display: none; 
+    }
+    #menu-form input, #menu-form button, #edit-menu-form input, #edit-menu-form button {
+      margin-bottom: 10px;
+      padding: 8px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    #show-form-btn {
+      margin: 20px;
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    #show-form-btn:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <nav id="dynamic-menu"></nav>
+  <button id="show-form-btn">Agregar Nueva Opción</button>
+
+  <div id="menu-form">
+    <h2>Agregar Nueva Opción</h2>
+    <form id="addMenuOptionForm">
+      <label for="label">Etiqueta: </label>
+      <input type="text" id="label" name="label" required><br>
+      
+      <label for="link">Enlace: </label>
+      <input type="text" id="link" name="link" required><br>
+      
+      <button type="submit">Agregar Opción</button>
+    </form>
+  </div>
+
+  <div id="edit-menu-form">
+    <h2>Editar Opción</h2>
+    <form id="editMenuOptionForm">
+      <label for="edit-label">Etiqueta: </label>
+      <input type="text" id="edit-label" name="edit-label" required><br>
+      
+      <label for="edit-link">Enlace: </label>
+      <input type="text" id="edit-link" name="edit-link" required><br>
+      
+      <button type="submit">Actualizar Opción</button>
+    </form>
+  </div>
+
+  
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      
+      const menuData = JSON.parse(localStorage.getItem("menuData")) || {
+        "menu": [
+          {
+            "label": "Inicio",
+            "link": "#inicio",
+            "subMenu": []
+          },
+          {
+            "label": "Servicios",
+            "link": "#servicios",
+            "subMenu": [
+              {
+                "label": "Consultoría",
+                "link": "#consultoria"
+              },
+              {
+                "label": "Desarrollo",
+                "link": "#desarrollo"
+              }
+            ]
+          }
+        ]
+      };
+
+      const menuContainer = document.getElementById('dynamic-menu');
+      generateMenu(menuData.menu, menuContainer);
+
+      
+      function generateMenu(menuItems, container) {
+        container.innerHTML = ""; 
+        const ul = document.createElement('ul');
+        menuItems.forEach((item, index) => {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = item.link;
+          a.textContent = item.label;
+
+          li.appendChild(a);
+
+          
+          if (item.subMenu && item.subMenu.length > 0) {
+            const subUl = document.createElement('ul');
+            item.subMenu.forEach((subItem, subIndex) => {
+              const subLi = document.createElement('li');
+              const subA = document.createElement('a');
+              subA.href = subItem.link;
+              subA.textContent = subItem.label;
+
+              subLi.appendChild(subA);
+              subUl.appendChild(subLi);
+            });
+            li.appendChild(subUl);
+          }
+
+          
+          li.addEventListener('contextmenu', function(e) {
+            e.preventDefault(); 
+            const deleteBtn = createDeleteButton(item, index, menuItems);
+            const editBtn = createEditButton(item, index, menuItems);
+            li.appendChild(deleteBtn);
+            li.appendChild(editBtn);
+            deleteBtn.style.display = 'block'; 
+            editBtn.style.display = 'block'; 
+          });
+
+          
+          document.addEventListener('click', function() {
+            const deleteButtons = li.getElementsByClassName('delete-btn');
+            const editButtons = li.getElementsByClassName('edit-btn');
+            if (deleteButtons.length > 0) {
+              deleteButtons[0].style.display = 'none'; 
+            }
+            if (editButtons.length > 0) {
+              editButtons[0].style.display = 'none'; 
+            }
+          });
+
+          ul.appendChild(li);
+        });
+        container.appendChild(ul);
+      }
+
+      
+      function createDeleteButton(item, index, menuItems) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = "Eliminar";
+        deleteBtn.className = "delete-btn";
+        deleteBtn.addEventListener('click', function() {
+          menuItems.splice(index, 1); 
+          localStorage.setItem("menuData", JSON.stringify({ menu: menuItems })); 
+          generateMenu(menuItems, menuContainer); 
+        });
+        return deleteBtn;
+      }
+
+      
+      function createEditButton(item, index, menuItems) {
+        const editBtn = document.createElement('button');
+        editBtn.textContent = "Editar";
+        editBtn.className = "edit-btn";
+        editBtn.addEventListener('click', function() {
+          
+          document.getElementById('edit-label').value = item.label;
+          document.getElementById('edit-link').value = item.link;
+          document.getElementById('editMenuOptionForm').setAttribute('data-index', index); // Guardar el índice
+          document.getElementById('edit-menu-form').style.display = 'block'; // Mostrar el formulario de edición
+        });
+        return editBtn;
+      }
+
+      
+      const showFormButton = document.getElementById('show-form-btn');
+      const menuForm = document.getElementById('menu-form');
+
+      showFormButton.addEventListener('click', function() {
+        menuForm.style.display = menuForm.style.display === 'none' ? 'block' : 'none';
+      });
+
+      
+      document.getElementById('addMenuOptionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const newLabel = document.getElementById('label').value;
+        const newLink = document.getElementById('link').value;
+
+        const newMenuItem = {
+          label: newLabel,
+          link: newLink,
+          subMenu: []
+        };
+
+        
+        menuData.menu.push(newMenuItem);
+        localStorage.setItem("menuData", JSON.stringify(menuData)); 
+        generateMenu(menuData.menu, menuContainer);
+
+        document.getElementById('addMenuOptionForm').reset();
+        menuForm.style.display = 'none';
+      });
+	  
+      document.getElementById('editMenuOptionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const index = this.getAttribute('data-index'); 
+        const updatedLabel = document.getElementById('edit-label').value;
+        const updatedLink = document.getElementById('edit-link').value;
+
+        menuData.menu[index].label = updatedLabel;
+        menuData.menu[index].link = updatedLink;
+
+        localStorage.setItem("menuData", JSON.stringify(menuData));
+        generateMenu(menuData.menu, menuContainer); 
+
+        document.getElementById('editMenuOptionForm').reset();
+        document.getElementById('edit-menu-form').style.display = 'none';
+      });
+    });
+  </script>
+</body>
+</html>
